@@ -2,8 +2,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { BirthDetails, ChatMessage, ChartData, AstrologicalSystem } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-
+const ai = new GoogleGenAI({ 
+  apiKey: import.meta.env.VITE_GEMINI_API_KEY as string 
+});
 export const calculateSystemChart = async (details: BirthDetails, system: AstrologicalSystem): Promise<ChartData> => {
   const systemContexts = {
     western: "Western Tropical Astrology using Placidus houses. Calculate Sun, Moon, Rising, and planets (Mercury to Pluto) with precise degrees. Focus on major aspects (Conjunction, Square, etc.) and psychological archetypes.",
