@@ -2,9 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { BirthDetails, ChatMessage, ChartData, AstrologicalSystem } from "../types";
 
-const ai = new GoogleGenAI({ 
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY as string 
-});
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
 export const calculateSystemChart = async (details: BirthDetails, system: AstrologicalSystem): Promise<ChartData> => {
   const systemContexts = {
     western: "Western Tropical Astrology using Placidus houses. Calculate Sun, Moon, Rising, and planets (Mercury to Pluto) with precise degrees. Focus on major aspects (Conjunction, Square, etc.) and psychological archetypes.",
@@ -16,8 +15,8 @@ export const calculateSystemChart = async (details: BirthDetails, system: Astrol
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Act as a high-fidelity ${system.toUpperCase()} calculation engine. 
-        Calculate the precise professional birth architecture for: 
+      contents: `Act as a professional high-fidelity ${system.toUpperCase()} calculation engine. 
+        Perform a precise calculation for: 
         Name: ${details.name}
         Date: ${details.date}
         Time: ${details.time}
@@ -25,11 +24,16 @@ export const calculateSystemChart = async (details: BirthDetails, system: Astrol
         
         Methodology: ${systemContexts[system]}
         
-        Return JSON only. 
-        For Western/Vedic/Hellenistic: Include 'lagna' (Ascendant/Rising), 'positions' (array of {planet, house, sign, isRetrograde}), a 2-sentence 'summary', and a 3-paragraph 'structuralAnalysis' detailing the professional-grade calculation used (Ayanamsha, House system, etc.).
-        For Chinese: Include 'pillars' (Year, Month, Day, Hour with animal and element), 'positions' (each pillar's elemental breakdown), 'summary', and 'structuralAnalysis' identifying the Day Master and elemental balance.`,
+        CRITICAL: Limit 'structuralAnalysis' to exactly 3 concise paragraphs (max 250 words total).
+        Limit 'positions' to the main significant bodies only (max 12 items).
+        Return valid JSON only. 
+        
+        For Western/Vedic/Hellenistic: Include 'lagna' (Ascendant), 'positions' (planet, house, sign, isRetrograde), 'summary' (2 sentences), and 'structuralAnalysis'.
+        For Chinese: Include 'pillars' (Year, Month, Day, Hour with animal and element), 'positions' (pillar elemental breakdown), 'summary', and 'structuralAnalysis'.`,
       config: {
         responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 1000 },
+        maxOutputTokens: 3000,
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -43,30 +47,35 @@ export const calculateSystemChart = async (details: BirthDetails, system: Astrol
                   properties: { 
                     animal: { type: Type.STRING }, 
                     element: { type: Type.STRING } 
-                  }
+                  },
+                  required: ["animal", "element"]
                 },
                 Month: { 
                   type: Type.OBJECT, 
                   properties: { 
                     animal: { type: Type.STRING }, 
                     element: { type: Type.STRING } 
-                  }
+                  },
+                  required: ["animal", "element"]
                 },
                 Day: { 
                   type: Type.OBJECT, 
                   properties: { 
                     animal: { type: Type.STRING }, 
                     element: { type: Type.STRING } 
-                  }
+                  },
+                  required: ["animal", "element"]
                 },
                 Hour: { 
                   type: Type.OBJECT, 
                   properties: { 
                     animal: { type: Type.STRING }, 
                     element: { type: Type.STRING } 
-                  }
+                  },
+                  required: ["animal", "element"]
                 }
-              }
+              },
+              required: ["Year", "Month", "Day", "Hour"]
             },
             positions: {
               type: Type.ARRAY,
@@ -79,7 +88,8 @@ export const calculateSystemChart = async (details: BirthDetails, system: Astrol
                   element: { type: Type.STRING },
                   animal: { type: Type.STRING },
                   isRetrograde: { type: Type.BOOLEAN }
-                }
+                },
+                required: ["planet"]
               }
             },
             summary: { type: Type.STRING },
@@ -95,7 +105,10 @@ export const calculateSystemChart = async (details: BirthDetails, system: Astrol
     return { ...data, system } as ChartData;
   } catch (error) {
     console.error("Chart Calculation Error:", error);
-    throw new Error("The celestial alignment calculation failed. Please ensure birth coordinates are precise.");
+    if (error instanceof SyntaxError) {
+      throw new Error("The celestial calculation was too complex for a single pass. Please try again.");
+    }
+    throw new Error(error instanceof Error ? error.message : "The celestial alignment calculation failed.");
   }
 };
 
@@ -123,6 +136,7 @@ export const getAstrologerResponse = async (
     2. Provide honest, calculative, and deeply intelligent responses.
     3. Use the professional data of the ${system} system to answer personal queries.
     4. Maintain a profound, high-end, and slightly mysterious yet technical tone.
+    5. Be concise but deep. No fluff.
   `;
 
   try {
@@ -134,6 +148,7 @@ export const getAstrologerResponse = async (
       })),
       config: {
         systemInstruction: systemInstruction,
+        thinkingConfig: { thinkingBudget: 2000 },
         temperature: 0.75
       }
     });
