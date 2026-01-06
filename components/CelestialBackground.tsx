@@ -1,7 +1,11 @@
 
 import React, { useEffect, useRef } from 'react';
 
-const CelestialBackground: React.FC = () => {
+interface CelestialBackgroundProps {
+  isDarkMode: boolean;
+}
+
+const CelestialBackground: React.FC<CelestialBackgroundProps> = ({ isDarkMode }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -11,42 +15,66 @@ const CelestialBackground: React.FC = () => {
     if (!ctx) return;
 
     let animationFrameId: number;
-    let stars: { x: number; y: number; size: number; opacity: number; speed: number }[] = [];
+    let stars: { x: number; y: number; size: number; opacity: number; speed: number; drift: number }[] = [];
 
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      initStars();
+      initElements();
     };
 
-    const initStars = () => {
+    const initElements = () => {
       stars = [];
-      const starCount = Math.floor((canvas.width * canvas.height) / 3000);
-      for (let i = 0; i < starCount; i++) {
+      const count = isDarkMode 
+        ? Math.floor((canvas.width * canvas.height) / 3000) 
+        : 50; // Fewer "elements" in light mode
+      
+      for (let i = 0; i < count; i++) {
         stars.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          size: Math.random() * 2,
-          opacity: Math.random(),
-          speed: Math.random() * 0.05
+          size: isDarkMode ? Math.random() * 2 : Math.random() * 100 + 50, // Stars vs "Clouds"
+          opacity: Math.random() * 0.5,
+          speed: Math.random() * 0.05,
+          drift: Math.random() * 0.2 - 0.1
         });
       }
     };
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#ffffff';
       
-      stars.forEach(star => {
-        ctx.globalAlpha = star.opacity;
-        ctx.beginPath();
-        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        star.opacity += (Math.random() - 0.5) * 0.02;
-        if (star.opacity < 0.1) star.opacity = 0.1;
-        if (star.opacity > 1) star.opacity = 1;
-      });
+      if (isDarkMode) {
+        ctx.fillStyle = '#ffffff';
+        stars.forEach(star => {
+          ctx.globalAlpha = star.opacity;
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+          ctx.fill();
+          
+          star.opacity += (Math.random() - 0.5) * 0.02;
+          if (star.opacity < 0.1) star.opacity = 0.1;
+          if (star.opacity > 0.8) star.opacity = 0.8;
+          
+          star.x += star.drift;
+          if (star.x < 0) star.x = canvas.width;
+          if (star.x > canvas.width) star.x = 0;
+        });
+      } else {
+        // Light mode drawing (soft blurry circles for "clouds")
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.filter = 'blur(60px)';
+        stars.forEach(star => {
+          ctx.globalAlpha = star.opacity * 0.2;
+          ctx.beginPath();
+          ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+          ctx.fill();
+          
+          star.x += star.speed * 2;
+          if (star.x > canvas.width + 100) star.x = -100;
+        });
+        ctx.filter = 'none';
+      }
 
       animationFrameId = requestAnimationFrame(draw);
     };
@@ -59,13 +87,17 @@ const CelestialBackground: React.FC = () => {
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, []);
+  }, [isDarkMode]);
+
+  const bgStyle = isDarkMode 
+    ? 'linear-gradient(to bottom, #05050a, #0a0a20)' 
+    : 'linear-gradient(to bottom, #f0f4f8, #e2e8f0)';
 
   return (
     <canvas 
       ref={canvasRef} 
-      className="fixed inset-0 pointer-events-none z-0"
-      style={{ background: 'linear-gradient(to bottom, #05050a, #0a0a20)' }}
+      className="fixed inset-0 pointer-events-none z-0 transition-all duration-1000"
+      style={{ background: bgStyle }}
     />
   );
 };

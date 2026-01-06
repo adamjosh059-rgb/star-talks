@@ -8,36 +8,65 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-primary: #05050a;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --border-color: rgba(255, 255, 255, 0.05);
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --gold: #d4af37;
+            --gold-hover: #b8962e;
+        }
+
+        .light-mode {
+            --bg-primary: #fcfcfd;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --border-color: rgba(15, 23, 42, 0.1);
+            --card-bg: rgba(15, 23, 42, 0.03);
+            --gold: #b48c1e;
+            --gold-hover: #967417;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #05050a;
-            color: #e2e8f0;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
             margin: 0;
             overflow-x: hidden;
+            transition: background-color 0.5s ease, color 0.5s ease;
         }
+
         h1, h2, h3, h4, .font-serif {
             font-family: 'Playfair Display', serif;
         }
-        .celestial-gradient {
-            background: radial-gradient(circle at center, #1a1a3a 0%, #05050a 100%);
+
+        .text-gold { color: var(--gold); }
+        .bg-gold { background-color: var(--gold); }
+        .border-gold { border-color: var(--gold); }
+        .border-white\/5 { border-color: var(--border-color); }
+        .border-white\/10 { border-color: var(--border-color); }
+        .bg-white\/5 { background-color: var(--card-bg); }
+        .bg-white\/10 { background-color: var(--card-bg); }
+
+        /* Smooth transitions for theme toggle */
+        * {
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
         }
-        .gold-glow {
-            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
-        }
-        .text-gold {
-            color: #d4af37;
-        }
-        .border-gold {
-            border-color: #d4af37;
-        }
-        .bg-gold {
-            background-color: #d4af37;
-        }
-        /* Fix for mobile menu height */
+
         @media (max-width: 1024px) {
-            main {
-                padding-top: 6rem;
-            }
+            main { padding-top: 6rem; }
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 4px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: var(--gold);
+            border-radius: 10px;
         }
     </style>
 <script type="importmap">

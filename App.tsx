@@ -11,17 +11,29 @@ import Chat from './pages/Chat';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<string>('home');
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
 
-  // Handle hash change for simple routing
+  // Toggle Theme
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
+  useEffect(() => {
+    if (!isDarkMode) {
+      document.body.classList.add('light-mode');
+    } else {
+      document.body.classList.remove('light-mode');
+    }
+  }, [isDarkMode]);
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '') || 'home';
       setCurrentPage(hash);
-      window.scrollTo(0, 0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    // Set initial page from hash
     handleHashChange();
 
     return () => window.removeEventListener('hashchange', handleHashChange);
@@ -34,7 +46,7 @@ const App: React.FC = () => {
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <Home onStartChat={() => navigateTo('chat')} />;
+        return <Home onStartChat={() => navigateTo('chat')} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />;
       case 'about':
         return <About />;
       case 'blog':
@@ -44,14 +56,19 @@ const App: React.FC = () => {
       case 'contact':
         return <Contact />;
       default:
-        return <Home onStartChat={() => navigateTo('chat')} />;
+        return <Home onStartChat={() => navigateTo('chat')} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />;
     }
   };
 
   return (
-    <div className="min-h-screen relative flex flex-col">
-      <CelestialBackground />
-      <Navbar currentPage={currentPage} onPageChange={navigateTo} />
+    <div className={`min-h-screen relative flex flex-col ${isDarkMode ? 'dark' : 'light'}`}>
+      <CelestialBackground isDarkMode={isDarkMode} />
+      <Navbar 
+        currentPage={currentPage} 
+        onPageChange={navigateTo} 
+        isDarkMode={isDarkMode} 
+        onToggleTheme={toggleTheme} 
+      />
       
       <main className="flex-grow z-10">
         {renderPage()}

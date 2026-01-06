@@ -30,18 +30,18 @@ const SystemChart: React.FC<{ data: ChartData }> = ({ data }) => {
   if (data.system === 'chinese') {
     return (
       <div className="space-y-6">
-        <div className="overflow-x-auto pb-4">
+        <div className="overflow-x-auto pb-4 scrollbar-thin">
           <div className="flex gap-4 min-w-max md:grid md:grid-cols-4 md:min-w-0">
             {Object.entries(data.pillars || {}).map(([pillar, val]: [string, any]) => (
               <div key={pillar} className="bg-white/5 p-4 rounded-xl border border-white/10 text-center flex-1 min-w-[140px]">
                 <div className="text-[10px] text-gold uppercase tracking-widest mb-2 font-bold">{pillar}</div>
-                <div className="text-xl font-bold text-white mb-1">{val.animal}</div>
-                <div className="text-xs text-slate-500 uppercase font-medium">{val.element}</div>
+                <div className="text-xl font-bold mb-1">{val.animal}</div>
+                <div className="text-xs opacity-50 uppercase font-medium">{val.element}</div>
               </div>
             ))}
           </div>
         </div>
-        <div className="bg-white/5 p-6 rounded-2xl border border-white/10 italic text-slate-400 text-sm leading-relaxed border-l-2 border-l-gold">
+        <div className="bg-white/5 p-6 rounded-2xl border border-white/10 italic opacity-70 text-sm leading-relaxed border-l-2 border-l-gold">
           {data.summary}
         </div>
       </div>
@@ -51,19 +51,19 @@ const SystemChart: React.FC<{ data: ChartData }> = ({ data }) => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white/5 px-6 py-4 rounded-xl border border-white/10">
-        <span className="text-xs uppercase tracking-[0.2em] text-slate-500 font-bold">Lagna / Ascendant</span>
+        <span className="text-xs uppercase tracking-[0.2em] opacity-50 font-bold">Lagna / Ascendant</span>
         <span className="text-gold font-bold text-lg">{data.lagna}</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {data.positions.map((p, i) => (
           <div key={i} className="bg-white/5 p-4 rounded-lg border border-white/5 hover:border-white/10 transition-colors">
             <div className="text-gold font-bold text-xs uppercase tracking-widest mb-2">{p.planet}</div>
-            <div className="text-white text-sm font-medium">{p.sign}</div>
-            <div className="text-slate-500 text-[10px] uppercase mt-1">House {p.house} {p.isRetrograde && '• Retrograde'}</div>
+            <div className="text-sm font-medium">{p.sign}</div>
+            <div className="opacity-40 text-[10px] uppercase mt-1">House {p.house} {p.isRetrograde && '• Retrograde'}</div>
           </div>
         ))}
       </div>
-      <div className="bg-white/5 p-6 rounded-2xl border border-white/10 italic text-slate-400 text-sm leading-relaxed border-l-2 border-l-gold">
+      <div className="bg-white/5 p-6 rounded-2xl border border-white/10 italic opacity-70 text-sm leading-relaxed border-l-2 border-l-gold">
         {data.summary}
       </div>
     </div>
@@ -78,7 +78,7 @@ const Chat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; type: 'calculation' | 'chat' } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -105,7 +105,7 @@ const Chat: React.FC = () => {
       const data = await calculateSystemChart(details, selectedSystem);
       setChartData(data);
     } catch (e: any) {
-      setError(e.message || "Failed to calculate birth architecture.");
+      setError({ message: e.message || "Celestial computation timed out.", type: 'calculation' });
     }
     setLoading(false);
   };
@@ -120,7 +120,7 @@ const Chat: React.FC = () => {
       const response = await getAstrologerResponse([{ role: 'user', content: initialMsg }], chartData, details, selectedSystem);
       setMessages([{ role: 'model', content: response }]);
     } catch (e: any) {
-      setError(e.message || "Failed to initiate AI conversation.");
+      setError({ message: e.message || "Inquiry failed to reach the oracle.", type: 'chat' });
     }
     setLoading(false);
   };
@@ -138,18 +138,26 @@ const Chat: React.FC = () => {
       const response = await getAstrologerResponse(newMsgs, chartData, details, selectedSystem);
       setMessages([...newMsgs, { role: 'model', content: response }]);
     } catch (e: any) {
-      setError(e.message || "The cosmic link was interrupted.");
+      setError({ message: e.message || "Celestial link interrupted.", type: 'chat' });
     }
     setLoading(false);
   };
 
-  const ErrorAlert = ({ message }: { message: string }) => (
-    <div className="bg-red-900/20 border border-red-500/50 p-6 rounded-2xl text-red-200 text-sm flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4">
-      <div className="flex items-center gap-3">
-        <span className="text-xl">⚠️</span>
-        <p>{message}</p>
-      </div>
-      <button onClick={() => setError(null)} className="text-xs uppercase tracking-widest font-bold hover:text-white">Dismiss</button>
+  const ErrorDisplay = ({ error }: { error: { message: string; type: 'calculation' | 'chat' } }) => (
+    <div className="bg-red-500/10 border border-red-500/30 p-8 rounded-[2rem] text-center space-y-4 animate-in fade-in duration-500">
+      <div className="text-3xl">☄️</div>
+      <h4 className="text-red-400 font-serif text-xl">Celestial Interruption</h4>
+      <p className="text-xs uppercase tracking-widest opacity-60 leading-relaxed max-w-xs mx-auto">{error.message}</p>
+      <button 
+        onClick={() => {
+          setError(null);
+          if (error.type === 'calculation') handleGetChart();
+          else if (messages.length === 0) handleStartDiscussion();
+        }} 
+        className="px-8 py-3 bg-red-500/20 hover:bg-red-500/40 text-red-200 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all"
+      >
+        Retry Synchronization
+      </button>
     </div>
   );
 
@@ -157,8 +165,8 @@ const Chat: React.FC = () => {
     return (
       <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
         <div className="text-center mb-16 space-y-6">
-          <h1 className="text-5xl md:text-8xl font-serif text-white">Choose Your <span className="text-gold italic">Mirror</span></h1>
-          <p className="text-slate-500 uppercase tracking-[0.4em] text-xs max-w-2xl mx-auto leading-relaxed">Four paths to the one truth: yourself. Each system offers a dedicated directional guidance through its own unique calculated intelligence.</p>
+          <h1 className="text-5xl md:text-8xl font-serif">Choose Your <span className="text-gold italic">Mirror</span></h1>
+          <p className="uppercase tracking-[0.4em] text-xs max-w-2xl mx-auto leading-relaxed opacity-50">Four paths to the one truth: yourself. Each system offers a dedicated directional guidance through its own unique calculated intelligence.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {(Object.keys(SYSTEM_DATA) as AstrologicalSystem[]).map((sys) => (
@@ -166,9 +174,9 @@ const Chat: React.FC = () => {
               <div className="space-y-6">
                 <div className="flex items-center gap-6">
                   <span className="text-5xl group-hover:scale-110 transition-transform">{SYSTEM_DATA[sys].icon}</span>
-                  <h2 className="text-2xl md:text-3xl font-serif text-white group-hover:text-gold transition-colors uppercase tracking-widest">{SYSTEM_DATA[sys].title}</h2>
+                  <h2 className="text-2xl md:text-3xl font-serif group-hover:text-gold transition-colors uppercase tracking-widest">{SYSTEM_DATA[sys].title}</h2>
                 </div>
-                <p className="text-slate-400 text-sm md:text-base leading-relaxed font-light">
+                <p className="text-sm md:text-base leading-relaxed font-light opacity-70">
                   {SYSTEM_DATA[sys].content}
                 </p>
               </div>
@@ -189,28 +197,28 @@ const Chat: React.FC = () => {
     return (
       <div className="pt-40 pb-24 px-6 max-w-2xl mx-auto">
         <div className="bg-white/5 border border-white/10 p-10 md:p-16 rounded-[3rem] shadow-2xl backdrop-blur-2xl">
-          <button onClick={() => setStep('select')} className="text-slate-500 hover:text-white uppercase tracking-[0.3em] text-[10px] font-bold mb-10 flex items-center gap-2 group">
+          <button onClick={() => setStep('select')} className="hover:text-gold transition-colors uppercase tracking-[0.3em] text-[10px] font-bold mb-10 flex items-center gap-2 group opacity-50 hover:opacity-100">
             <span className="group-hover:-translate-x-1 transition-transform">←</span> Change System
           </button>
-          <h2 className="text-4xl font-serif text-white mb-8">Establish Your <span className="text-gold italic">Coordinates</span></h2>
+          <h2 className="text-4xl font-serif mb-8">Establish Your <span className="text-gold italic">Coordinates</span></h2>
           <form onSubmit={handleFormSubmit} className="space-y-10">
             <div className="space-y-3">
               <label className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold opacity-70">Essence Name</label>
-              <input type="text" required placeholder="Full Name" className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all text-white placeholder:text-slate-800" value={details.name} onChange={e => setDetails({...details, name: e.target.value})} />
+              <input type="text" required placeholder="Full Name" className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all placeholder:opacity-30" value={details.name} onChange={e => setDetails({...details, name: e.target.value})} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
               <div className="space-y-3">
                 <label className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold opacity-70">Date of Origin</label>
-                <input type="date" required className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all text-white color-scheme-dark" value={details.date} onChange={e => setDetails({...details, date: e.target.value})} />
+                <input type="date" required className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all" value={details.date} onChange={e => setDetails({...details, date: e.target.value})} />
               </div>
               <div className="space-y-3">
                 <label className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold opacity-70">Time of Origin</label>
-                <input type="time" required className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all text-white color-scheme-dark" value={details.time} onChange={e => setDetails({...details, time: e.target.value})} />
+                <input type="time" required className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all" value={details.time} onChange={e => setDetails({...details, time: e.target.value})} />
               </div>
             </div>
             <div className="space-y-3">
               <label className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold opacity-70">Place of Origin</label>
-              <input type="text" required placeholder="City, Country" className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all text-white placeholder:text-slate-800" value={details.location} onChange={e => setDetails({...details, location: e.target.value})} />
+              <input type="text" required placeholder="City, Country" className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all placeholder:opacity-30" value={details.location} onChange={e => setDetails({...details, location: e.target.value})} />
             </div>
             <button type="submit" className="w-full bg-gold text-black font-bold py-6 rounded-full hover:bg-white transition-all uppercase tracking-[0.4em] text-xs shadow-xl shadow-gold/5 active:scale-95">
               Synchronize →
@@ -226,11 +234,11 @@ const Chat: React.FC = () => {
       <div className="pt-40 pb-24 px-6 max-w-5xl mx-auto space-y-12">
         <div className="text-center space-y-4">
           <span className="text-gold text-5xl inline-block animate-bounce-slow">⚡</span>
-          <h2 className="text-5xl font-serif text-white italic">Synchronization Complete</h2>
-          <p className="text-slate-500 uppercase tracking-[0.4em] text-[10px]">Your {selectedSystem} data is ready for deep-dive extraction</p>
+          <h2 className="text-5xl font-serif italic">Synchronization Complete</h2>
+          <p className="uppercase tracking-[0.4em] text-[10px] opacity-50">Your {selectedSystem} data is ready for deep-dive extraction</p>
         </div>
 
-        {error && <ErrorAlert message={error} />}
+        {error && error.type === 'calculation' && <ErrorDisplay error={error} />}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <button 
@@ -241,8 +249,8 @@ const Chat: React.FC = () => {
             }`}
           >
             <span className={`text-4xl group-hover:scale-110 transition-transform ${loading ? 'animate-spin' : ''}`}>🔭</span>
-            <span className={`text-serif text-2xl ${chartData ? 'text-black' : 'text-white group-hover:text-gold'}`}>Get Your Birth Chart</span>
-            <p className={`text-[10px] uppercase tracking-widest px-10 text-center ${chartData ? 'text-black/60' : 'text-slate-500'}`}>Professional-grade {selectedSystem} calculation architecture</p>
+            <span className={`text-serif text-2xl ${chartData ? 'text-black' : 'group-hover:text-gold'}`}>Get Your Birth Chart</span>
+            <p className={`text-[10px] uppercase tracking-widest px-10 text-center opacity-60 ${chartData ? 'text-black/60' : ''}`}>Professional-grade {selectedSystem} calculation architecture</p>
           </button>
 
           <button 
@@ -251,17 +259,17 @@ const Chat: React.FC = () => {
             className="group relative h-64 bg-white/5 border border-white/10 rounded-[2rem] hover:border-gold/50 hover:bg-gold transition-all flex flex-col items-center justify-center space-y-4 overflow-hidden"
           >
             <span className="text-4xl group-hover:scale-110 transition-transform">👁️</span>
-            <span className="text-white group-hover:text-black font-serif text-2xl">Lets Discuss Yourself</span>
-            <p className="text-[10px] text-slate-500 group-hover:text-black/60 uppercase tracking-widest px-10 text-center">Initialize dedicated AI intelligence session</p>
+            <span className="group-hover:text-black font-serif text-2xl">Lets Discuss Yourself</span>
+            <p className="text-[10px] opacity-50 group-hover:text-black/60 uppercase tracking-widest px-10 text-center">Initialize dedicated AI intelligence session</p>
           </button>
         </div>
 
-        {loading && (
+        {loading && !chartData && (
           <div className="text-center space-y-4 py-10">
-            <div className="flex justify-center gap-1">
-              <div className="w-1 h-1 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-              <div className="w-1 h-1 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-              <div className="w-1 h-1 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+            <div className="flex justify-center gap-2">
+              <div className="w-1.5 h-1.5 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+              <div className="w-1.5 h-1.5 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-1.5 h-1.5 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
             </div>
             <p className="text-gold uppercase tracking-[0.6em] text-[9px] font-bold">Connecting to Celestial Nodes...</p>
           </div>
@@ -271,8 +279,8 @@ const Chat: React.FC = () => {
           <div className="animate-fade-in space-y-12">
             <div className="bg-white/5 p-8 md:p-16 rounded-[3rem] border border-white/10 shadow-2xl backdrop-blur-md">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 border-b border-white/5 pb-8">
-                <h3 className="text-3xl md:text-4xl font-serif text-white">The {selectedSystem} <span className="text-gold italic">Engine</span></h3>
-                <div className="text-[10px] text-slate-500 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full border border-white/5">Calculated Intelligence</div>
+                <h3 className="text-3xl md:text-4xl font-serif">The {selectedSystem} <span className="text-gold italic">Engine</span></h3>
+                <div className="text-[10px] uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full border border-white/5 opacity-50">Calculated Intelligence</div>
               </div>
               
               <SystemChart data={chartData} />
@@ -283,8 +291,8 @@ const Chat: React.FC = () => {
                    <h4 className="text-xs font-bold text-gold uppercase tracking-[0.4em]">Genuine Structural Infrastructure</h4>
                    <div className="h-px bg-gold/30 flex-grow"></div>
                 </div>
-                <div className="prose prose-invert max-w-none">
-                  <div className="text-slate-400 font-light leading-loose whitespace-pre-wrap text-base italic text-justify opacity-80">
+                <div className="prose prose-slate dark:prose-invert max-w-none">
+                  <div className="font-serif text-base md:text-lg italic leading-relaxed whitespace-pre-wrap opacity-70 text-justify">
                     {chartData.structuralAnalysis}
                   </div>
                 </div>
@@ -305,31 +313,32 @@ const Chat: React.FC = () => {
 
   return (
     <div className="pt-32 pb-6 px-6 max-w-6xl mx-auto h-[90vh] flex flex-col">
-       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
        <div className="flex-grow flex flex-col h-full bg-white/5 border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl backdrop-blur-3xl relative">
           {/* Header */}
-          <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#05050a]/60 sticky top-0 z-10">
+          <div className="p-8 border-b border-white/10 flex justify-between items-center bg-primary/60 sticky top-0 z-10">
             <div className="flex items-center gap-4">
                <span className="text-3xl animate-pulse">{SYSTEM_DATA[selectedSystem!].icon}</span>
                <div>
-                  <h3 className="text-lg md:text-xl font-serif text-white tracking-widest">{selectedSystem?.toUpperCase()} INTELLIGENCE</h3>
-                  <p className="text-[9px] text-slate-500 tracking-[0.3em] uppercase">Consultant: Star Talks AI • Profiling: {details.name}</p>
+                  <h3 className="text-lg md:text-xl font-serif tracking-widest">{selectedSystem?.toUpperCase()} INTELLIGENCE</h3>
+                  <p className="text-[9px] opacity-50 tracking-[0.3em] uppercase">Consultant: Star Talks AI • Profiling: {details.name}</p>
                </div>
             </div>
-            <button onClick={() => { setStep('results'); setMessages([]); setError(null); }} className="text-slate-500 hover:text-white uppercase tracking-widest text-[9px] font-bold transition-colors">Terminate Session</button>
+            <button onClick={() => { setStep('results'); setMessages([]); setError(null); }} className="hover:text-gold uppercase tracking-widest text-[9px] font-bold transition-colors opacity-50">Terminate Session</button>
           </div>
 
           {/* Messages */}
           <div ref={scrollRef} className="flex-grow p-6 md:p-12 overflow-y-auto space-y-10 scrollbar-thin">
+            {error && error.type === 'chat' && <div className="max-w-md mx-auto"><ErrorDisplay error={error} /></div>}
+            
             {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
                 <div className={`max-w-[90%] md:max-w-[80%] p-8 rounded-[2.5rem] ${
-                  msg.role === 'user' ? 'bg-gold text-black shadow-2xl rounded-tr-none' : 'bg-white/5 text-slate-200 border border-white/5 rounded-tl-none backdrop-blur-md'
+                  msg.role === 'user' ? 'bg-gold text-black shadow-2xl rounded-tr-none' : 'bg-white/5 border border-white/5 rounded-tl-none backdrop-blur-md'
                 }`}>
                   <div className={`text-[9px] font-bold uppercase tracking-widest mb-4 opacity-50 ${msg.role === 'user' ? 'text-black' : 'text-gold'}`}>
                     {msg.role === 'user' ? 'The Seeker' : 'The System Architecture'}
                   </div>
-                  <div className="leading-relaxed whitespace-pre-wrap text-sm md:text-base font-light italic">
+                  <div className="leading-relaxed whitespace-pre-wrap text-sm md:text-base font-serif italic">
                     {msg.content}
                   </div>
                 </div>
@@ -337,7 +346,7 @@ const Chat: React.FC = () => {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-white/5 text-gold/60 p-6 rounded-[2.5rem] rounded-tl-none text-[10px] uppercase tracking-[0.4em] border border-white/5 italic">
+                <div className="bg-white/5 p-6 rounded-[2.5rem] rounded-tl-none text-[10px] uppercase tracking-[0.4em] border border-white/5 italic opacity-60">
                   Decoding current transits and elemental flux...
                 </div>
               </div>
@@ -345,12 +354,12 @@ const Chat: React.FC = () => {
           </div>
 
           {/* Input */}
-          <div className="p-6 md:p-8 bg-[#05050a]/80 border-t border-white/10 backdrop-blur-xl">
+          <div className="p-6 md:p-8 bg-primary/80 border-t border-white/10 backdrop-blur-xl">
             <form onSubmit={handleChatSend} className="flex flex-col sm:flex-row gap-4 max-w-5xl mx-auto">
               <input 
                 type="text" 
                 placeholder="Ask about your destiny, current cycles, or specific life questions..." 
-                className="flex-grow bg-white/5 border border-white/10 rounded-full px-8 py-5 text-white focus:outline-none focus:border-gold transition-all placeholder:text-slate-700 text-sm md:text-base"
+                className="flex-grow bg-white/5 border border-white/10 rounded-full px-8 py-5 focus:outline-none focus:border-gold transition-all placeholder:opacity-30 text-sm md:text-base"
                 value={input}
                 onChange={e => setInput(e.target.value)}
               />
