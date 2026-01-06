@@ -2,8 +2,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { BirthDetails, ChatMessage, ChartData } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-
+const ai = new GoogleGenAI({ 
+  apiKey: import.meta.env.VITE_GEMINI_API_KEY as string 
+});
 export const calculateVedicChart = async (details: BirthDetails): Promise<ChartData> => {
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
