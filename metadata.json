@@ -1,0 +1,7 @@
+{
+  "name": "Star Talks - Celestial Guidance",
+  "description": "A comprehensive Vedic astrology platform where you can discover your cosmic identity and talk to an expert AI astrologer.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
