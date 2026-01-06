@@ -1,275 +1,369 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { getAstrologerResponse, calculateVedicChart } from '../services/gemini';
-import { BirthDetails, ChatMessage, ChartData, PlanetaryPosition } from '../types';
+import { getAstrologerResponse, calculateSystemChart } from '../services/gemini';
+import { BirthDetails, ChatMessage, ChartData, AstrologicalSystem } from '../types';
 
-const NorthIndianChart: React.FC<{ data: ChartData }> = ({ data }) => {
-  const houseMap: Record<number, PlanetaryPosition[]> = {};
-  data.positions.forEach(p => {
-    if (!houseMap[p.house]) houseMap[p.house] = [];
-    houseMap[p.house].push(p);
-  });
+const SYSTEM_DATA: Record<AstrologicalSystem, { title: string, content: string, icon: string }> = {
+  western: {
+    title: 'Western Tropical',
+    icon: '☀️',
+    content: 'Western Tropical astrology is the world’s most widely recognized system because of its deep integration with modern psychological archetypes. It is centered on the Seasonal Zodiac, tracking the Sun’s relationship to the Earth’s orientation. Users consult this system to seek dedicated guidance on personality evolution, internal psychological drives, and the "why" behind their life choices. It is particularly adept at predicting cycles of personal growth, identity crises, and the integration of the shadow self into the conscious mind. By focusing on planetary "aspects" or geometric relationships, it maps the internal friction that leads to character development. If you seek to understand the structure of your ego and your potential for self-actualization, this is the mirror you need.'
+  },
+  vedic: {
+    title: 'Vedic Sidereal',
+    icon: '🕉️',
+    content: 'Vedic astrology, or Jyotisha, is trusted by millions because of its astronomical precision and focus on the Sidereal zodiac, which tracks the actual fixed positions of the stars. It is widely known for its unparalleled accuracy in timing life events through the "Dasha" system—a dedicated timeline of planetary periods. You should consult this system if you seek dedicated guidance on Karma, spiritual purpose, and the objective timing of career, marriage, and health milestones. It is significantly more predictive about the "when" of life, providing a calculative map of destiny that allows you to align your actions with the cosmic rhythm. It provides the most honest assessment of the karmic luggage you carry and the specific spiritual lessons your soul has scripted for this incarnation.'
+  },
+  chinese: {
+    title: 'Chinese BaZi',
+    icon: '🐉',
+    content: 'Chinese BaZi, or the Four Pillars of Destiny, is a sophisticated elemental system trusted for its focus on the harmony between the individual and the natural world. It is widely known for its use of the Five Elements (Wood, Fire, Earth, Metal, Water) and the 12 Zodiac Animals to decode the flow of "Qi" in a person’s life. Consult this system to seek dedicated guidance on environmental harmony, career suitability, and relational compatibility based on elemental balance. It is specifically predictive about life-cycles of luck and the structural strengths of your elemental constitution. Unlike planetary systems, BaZi offers a unique perspective on how to manage your destiny by balancing internal elements with external timing, helping you navigate the world with minimum resistance and maximum flow.'
+  },
+  hellenistic: {
+    title: 'Hellenistic / Ancient',
+    icon: '🏛️',
+    content: 'Hellenistic astrology is the foundational architecture of all Mediterranean horoscopy, trusted for its stark, unflinching honesty regarding fate and objective life outcomes. It is widely known for its rigorous use of "Planetary Dignity" and the "Whole Sign" house system, which provides a clear, structural view of a person’s social standing, wealth, and longevity. You should consult this system if you seek dedicated, unsentimental guidance on the concrete realities of your existence. It is highly predictive about the structural successes and failures of one’s life path, identifying the "Lots" or points of fortune that dictate the physical reality of your journey. If you are tired of modern fluff and want a calculative, traditional assessment of the hand you have been dealt by the Fates, this ancient system is your gateway.'
+  }
+};
 
-  const houseCenters: Record<number, { x: number, y: number }> = {
-    1: { x: 200, y: 100 },
-    2: { x: 100, y: 40 },
-    3: { x: 40, y: 100 },
-    4: { x: 100, y: 200 },
-    5: { x: 40, y: 300 },
-    6: { x: 100, y: 360 },
-    7: { x: 200, y: 300 },
-    8: { x: 300, y: 360 },
-    9: { x: 360, y: 300 },
-    10: { x: 300, y: 200 },
-    11: { x: 360, y: 100 },
-    12: { x: 300, y: 40 }
-  };
+const SystemChart: React.FC<{ data: ChartData }> = ({ data }) => {
+  if (data.system === 'chinese') {
+    return (
+      <div className="space-y-6">
+        <div className="overflow-x-auto pb-4">
+          <div className="flex gap-4 min-w-max md:grid md:grid-cols-4 md:min-w-0">
+            {Object.entries(data.pillars || {}).map(([pillar, val]: [string, any]) => (
+              <div key={pillar} className="bg-white/5 p-4 rounded-xl border border-white/10 text-center flex-1 min-w-[140px]">
+                <div className="text-[10px] text-gold uppercase tracking-widest mb-2 font-bold">{pillar}</div>
+                <div className="text-xl font-bold text-white mb-1">{val.animal}</div>
+                <div className="text-xs text-slate-500 uppercase font-medium">{val.element}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white/5 p-6 rounded-2xl border border-white/10 italic text-slate-400 text-sm leading-relaxed border-l-2 border-l-gold">
+          {data.summary}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-lg mx-auto aspect-square relative bg-black/40 border border-gold/30 rounded-2xl overflow-hidden shadow-2xl p-4">
-      <svg viewBox="0 0 400 400" className="w-full h-full stroke-gold/40 fill-none">
-        <rect x="0" y="0" width="400" height="400" strokeWidth="2" />
-        <line x1="0" y1="0" x2="400" y2="400" strokeWidth="1.5" />
-        <line x1="400" y1="0" x2="0" y2="400" strokeWidth="1.5" />
-        <polygon points="200,0 400,200 200,400 0,200" strokeWidth="1.5" />
-        
-        {Object.entries(houseCenters).map(([house, pos]) => (
-          <text 
-            key={`num-${house}`} 
-            x={pos.x} 
-            y={pos.y - 15} 
-            textAnchor="middle" 
-            className="fill-gold/30 text-[10px] font-bold"
-          >
-            {house}
-          </text>
-        ))}
-
-        {Object.entries(houseMap).map(([house, planets]) => {
-          const center = houseCenters[parseInt(house)];
-          return (
-            <g key={`planets-${house}`}>
-              {planets.map((p, idx) => {
-                const offset = planets.length > 1 ? 15 : 0;
-                const angle = (idx / planets.length) * 2 * Math.PI;
-                const px = center.x + Math.cos(angle) * offset;
-                const py = center.y + Math.sin(angle) * offset;
-                const planetCode = p.planet.substring(0, 2).toUpperCase();
-                
-                return (
-                  <text 
-                    key={`${p.planet}-${idx}`}
-                    x={px} 
-                    y={py + 5} 
-                    textAnchor="middle" 
-                    className={`text-[12px] font-bold ${p.isRetrograde ? 'fill-red-400' : 'fill-white'}`}
-                  >
-                    {planetCode}{p.isRetrograde ? ' (R)' : ''}
-                  </text>
-                );
-              })}
-            </g>
-          );
-        })}
-      </svg>
-      <div className="absolute top-4 left-4 text-[10px] text-gold/60 uppercase tracking-widest font-bold bg-black/40 px-3 py-1 rounded-full border border-gold/20">
-        Lagna: {data.lagna}
+    <div className="space-y-6">
+      <div className="flex justify-between items-center bg-white/5 px-6 py-4 rounded-xl border border-white/10">
+        <span className="text-xs uppercase tracking-[0.2em] text-slate-500 font-bold">Lagna / Ascendant</span>
+        <span className="text-gold font-bold text-lg">{data.lagna}</span>
       </div>
-      <div className="absolute bottom-4 right-4 text-[9px] text-red-400/80 italic font-medium">
-        (R) Indicates Retrograde
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {data.positions.map((p, i) => (
+          <div key={i} className="bg-white/5 p-4 rounded-lg border border-white/5 hover:border-white/10 transition-colors">
+            <div className="text-gold font-bold text-xs uppercase tracking-widest mb-2">{p.planet}</div>
+            <div className="text-white text-sm font-medium">{p.sign}</div>
+            <div className="text-slate-500 text-[10px] uppercase mt-1">House {p.house} {p.isRetrograde && '• Retrograde'}</div>
+          </div>
+        ))}
+      </div>
+      <div className="bg-white/5 p-6 rounded-2xl border border-white/10 italic text-slate-400 text-sm leading-relaxed border-l-2 border-l-gold">
+        {data.summary}
       </div>
     </div>
   );
 };
 
 const Chat: React.FC = () => {
+  const [step, setStep] = useState<'select' | 'form' | 'results' | 'chat'>('select');
+  const [selectedSystem, setSelectedSystem] = useState<AstrologicalSystem | null>(null);
+  const [details, setDetails] = useState<BirthDetails>({ name: '', date: '', time: '', location: '' });
+  const [chartData, setChartData] = useState<ChartData | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [calculating, setCalculating] = useState(false);
-  const [chartData, setChartData] = useState<ChartData | null>(null);
-  const [birthDetails, setBirthDetails] = useState<BirthDetails>({
-    date: '',
-    time: '',
-    location: ''
-  });
-  
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
-  const handleStartConsultation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCalculating(true);
-    
-    try {
-      const chart = await calculateVedicChart(birthDetails);
-      setChartData(chart);
-      
-      const promptText = `Please provide a personalized opening reading based on my birth details: ${JSON.stringify(birthDetails)} and chart summary: ${chart.summary}`;
-      const firstResponse = await getAstrologerResponse(
-        [{ role: 'user', content: promptText }], 
-        chart,
-        birthDetails
-      );
-      
-      setMessages([
-        { role: 'model', content: `Calculation complete for ${birthDetails.location}. Your Lagna (Ascendant) is ${chart.lagna}. ${chart.summary}` },
-        { role: 'model', content: firstResponse }
-      ]);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCalculating(false);
-    }
+  const handleSystemSelect = (sys: AstrologicalSystem) => {
+    setSelectedSystem(sys);
+    setStep('form');
+    setError(null);
   };
 
-  const handleChatSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || loading) return;
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStep('results');
+    setError(null);
+  };
 
-    const userMsg = input.trim();
-    setInput('');
-    const newMessages: ChatMessage[] = [...messages, { role: 'user', content: userMsg }];
-    setMessages(newMessages);
+  const handleGetChart = async () => {
+    if (!selectedSystem) return;
     setLoading(true);
-
-    const response = await getAstrologerResponse(newMessages, chartData, birthDetails);
-    setMessages([...newMessages, { role: 'model', content: response }]);
+    setError(null);
+    try {
+      const data = await calculateSystemChart(details, selectedSystem);
+      setChartData(data);
+    } catch (e: any) {
+      setError(e.message || "Failed to calculate birth architecture.");
+    }
     setLoading(false);
   };
 
-  return (
-    <div className="pt-24 pb-12 px-4 max-w-6xl mx-auto min-h-screen flex flex-col">
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-serif text-gold">Celestial Oracle</h1>
-        <p className="text-gray-400 italic">"Talk to your Ownself, to better know yourself."</p>
-      </div>
+  const handleStartDiscussion = async () => {
+    if (!selectedSystem) return;
+    setStep('chat');
+    setLoading(true);
+    setError(null);
+    try {
+      const initialMsg = `Please provide a high-level opening assessment based on my ${selectedSystem} profile. I want to know the true structure of my character and what current cycles I should be aware of.`;
+      const response = await getAstrologerResponse([{ role: 'user', content: initialMsg }], chartData, details, selectedSystem);
+      setMessages([{ role: 'model', content: response }]);
+    } catch (e: any) {
+      setError(e.message || "Failed to initiate AI conversation.");
+    }
+    setLoading(false);
+  };
 
-      {!chartData ? (
-        <div className="max-w-md mx-auto w-full bg-white/5 border border-white/10 p-8 rounded-3xl shadow-2xl backdrop-blur-md">
-          <h2 className="text-2xl font-serif text-white mb-6 text-center">Establish Cosmic Connection</h2>
-          <form onSubmit={handleStartConsultation} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-gold font-bold">Date of Birth</label>
-              <input 
-                type="date" 
-                required
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-gold transition-colors"
-                value={birthDetails.date}
-                onChange={e => setBirthDetails({...birthDetails, date: e.target.value})}
-              />
+  const handleChatSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || loading || !selectedSystem) return;
+    const userMsg = input.trim();
+    setInput('');
+    const newMsgs: ChatMessage[] = [...messages, { role: 'user', content: userMsg }];
+    setMessages(newMsgs);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await getAstrologerResponse(newMsgs, chartData, details, selectedSystem);
+      setMessages([...newMsgs, { role: 'model', content: response }]);
+    } catch (e: any) {
+      setError(e.message || "The cosmic link was interrupted.");
+    }
+    setLoading(false);
+  };
+
+  const ErrorAlert = ({ message }: { message: string }) => (
+    <div className="bg-red-900/20 border border-red-500/50 p-6 rounded-2xl text-red-200 text-sm flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4">
+      <div className="flex items-center gap-3">
+        <span className="text-xl">⚠️</span>
+        <p>{message}</p>
+      </div>
+      <button onClick={() => setError(null)} className="text-xs uppercase tracking-widest font-bold hover:text-white">Dismiss</button>
+    </div>
+  );
+
+  if (step === 'select') {
+    return (
+      <div className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
+        <div className="text-center mb-16 space-y-6">
+          <h1 className="text-5xl md:text-8xl font-serif text-white">Choose Your <span className="text-gold italic">Mirror</span></h1>
+          <p className="text-slate-500 uppercase tracking-[0.4em] text-xs max-w-2xl mx-auto leading-relaxed">Four paths to the one truth: yourself. Each system offers a dedicated directional guidance through its own unique calculated intelligence.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {(Object.keys(SYSTEM_DATA) as AstrologicalSystem[]).map((sys) => (
+            <div key={sys} className="group p-8 md:p-12 bg-white/5 rounded-[3rem] border border-white/10 hover:border-gold/30 transition-all flex flex-col justify-between h-full backdrop-blur-md">
+              <div className="space-y-6">
+                <div className="flex items-center gap-6">
+                  <span className="text-5xl group-hover:scale-110 transition-transform">{SYSTEM_DATA[sys].icon}</span>
+                  <h2 className="text-2xl md:text-3xl font-serif text-white group-hover:text-gold transition-colors uppercase tracking-widest">{SYSTEM_DATA[sys].title}</h2>
+                </div>
+                <p className="text-slate-400 text-sm md:text-base leading-relaxed font-light">
+                  {SYSTEM_DATA[sys].content}
+                </p>
+              </div>
+              <button 
+                onClick={() => handleSystemSelect(sys)}
+                className="mt-10 py-5 bg-gold text-black font-bold uppercase tracking-[0.4em] text-[10px] rounded-full hover:bg-white transition-all transform hover:scale-105 active:scale-95 shadow-xl shadow-gold/10"
+              >
+                Lets Dive →
+              </button>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-gold font-bold">Time of Birth</label>
-              <input 
-                type="time" 
-                required
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-gold transition-colors"
-                value={birthDetails.time}
-                onChange={e => setBirthDetails({...birthDetails, time: e.target.value})}
-              />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'form') {
+    return (
+      <div className="pt-40 pb-24 px-6 max-w-2xl mx-auto">
+        <div className="bg-white/5 border border-white/10 p-10 md:p-16 rounded-[3rem] shadow-2xl backdrop-blur-2xl">
+          <button onClick={() => setStep('select')} className="text-slate-500 hover:text-white uppercase tracking-[0.3em] text-[10px] font-bold mb-10 flex items-center gap-2 group">
+            <span className="group-hover:-translate-x-1 transition-transform">←</span> Change System
+          </button>
+          <h2 className="text-4xl font-serif text-white mb-8">Establish Your <span className="text-gold italic">Coordinates</span></h2>
+          <form onSubmit={handleFormSubmit} className="space-y-10">
+            <div className="space-y-3">
+              <label className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold opacity-70">Essence Name</label>
+              <input type="text" required placeholder="Full Name" className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all text-white placeholder:text-slate-800" value={details.name} onChange={e => setDetails({...details, name: e.target.value})} />
             </div>
-            <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-gold font-bold">Place of Birth</label>
-              <input 
-                type="text" 
-                required
-                placeholder="City, Country"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-gold transition-colors"
-                value={birthDetails.location}
-                onChange={e => setBirthDetails({...birthDetails, location: e.target.value})}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
+              <div className="space-y-3">
+                <label className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold opacity-70">Date of Origin</label>
+                <input type="date" required className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all text-white color-scheme-dark" value={details.date} onChange={e => setDetails({...details, date: e.target.value})} />
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold opacity-70">Time of Origin</label>
+                <input type="time" required className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all text-white color-scheme-dark" value={details.time} onChange={e => setDetails({...details, time: e.target.value})} />
+              </div>
             </div>
-            <button 
-              type="submit"
-              disabled={calculating}
-              className="w-full bg-gold text-black font-bold py-4 rounded-xl hover:bg-[#b8962e] transition-all disabled:opacity-50 uppercase tracking-widest text-sm shadow-lg shadow-gold/20"
-            >
-              {calculating ? 'Syncing with Ephemeris...' : 'Generate Birth Chart'}
+            <div className="space-y-3">
+              <label className="text-[10px] uppercase tracking-[0.3em] text-gold font-bold opacity-70">Place of Origin</label>
+              <input type="text" required placeholder="City, Country" className="w-full bg-transparent border-b border-white/10 py-4 focus:outline-none focus:border-gold transition-all text-white placeholder:text-slate-800" value={details.location} onChange={e => setDetails({...details, location: e.target.value})} />
+            </div>
+            <button type="submit" className="w-full bg-gold text-black font-bold py-6 rounded-full hover:bg-white transition-all uppercase tracking-[0.4em] text-xs shadow-xl shadow-gold/5 active:scale-95">
+              Synchronize →
             </button>
           </form>
         </div>
-      ) : (
-        <div className="flex flex-col gap-8 flex-1">
-          <div className="flex flex-col h-[65vh]">
-            <div 
-              ref={scrollRef}
-              className="flex-1 bg-white/5 border border-white/10 rounded-3xl p-6 overflow-y-auto space-y-6 shadow-2xl backdrop-blur-md"
-            >
-              {messages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] p-5 rounded-2xl ${msg.role === 'user' ? 'bg-gold text-black shadow-lg shadow-gold/10' : 'bg-white/10 text-gray-200 border border-white/5 shadow-inner'}`}>
-                    <div className="text-[10px] font-bold uppercase tracking-widest mb-2 opacity-50">
-                      {msg.role === 'user' ? 'Seeker' : 'Oracle'}
-                    </div>
-                    <div className="leading-relaxed whitespace-pre-wrap text-sm md:text-base">{msg.content}</div>
+      </div>
+    );
+  }
+
+  if (step === 'results') {
+    return (
+      <div className="pt-40 pb-24 px-6 max-w-5xl mx-auto space-y-12">
+        <div className="text-center space-y-4">
+          <span className="text-gold text-5xl inline-block animate-bounce-slow">⚡</span>
+          <h2 className="text-5xl font-serif text-white italic">Synchronization Complete</h2>
+          <p className="text-slate-500 uppercase tracking-[0.4em] text-[10px]">Your {selectedSystem} data is ready for deep-dive extraction</p>
+        </div>
+
+        {error && <ErrorAlert message={error} />}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <button 
+            onClick={handleGetChart}
+            disabled={loading}
+            className={`group relative h-64 border rounded-[2rem] transition-all flex flex-col items-center justify-center space-y-4 overflow-hidden ${
+              chartData ? 'bg-gold border-gold/20' : 'bg-white/5 border-white/10 hover:border-gold/50'
+            }`}
+          >
+            <span className={`text-4xl group-hover:scale-110 transition-transform ${loading ? 'animate-spin' : ''}`}>🔭</span>
+            <span className={`text-serif text-2xl ${chartData ? 'text-black' : 'text-white group-hover:text-gold'}`}>Get Your Birth Chart</span>
+            <p className={`text-[10px] uppercase tracking-widest px-10 text-center ${chartData ? 'text-black/60' : 'text-slate-500'}`}>Professional-grade {selectedSystem} calculation architecture</p>
+          </button>
+
+          <button 
+            onClick={handleStartDiscussion}
+            disabled={loading}
+            className="group relative h-64 bg-white/5 border border-white/10 rounded-[2rem] hover:border-gold/50 hover:bg-gold transition-all flex flex-col items-center justify-center space-y-4 overflow-hidden"
+          >
+            <span className="text-4xl group-hover:scale-110 transition-transform">👁️</span>
+            <span className="text-white group-hover:text-black font-serif text-2xl">Lets Discuss Yourself</span>
+            <p className="text-[10px] text-slate-500 group-hover:text-black/60 uppercase tracking-widest px-10 text-center">Initialize dedicated AI intelligence session</p>
+          </button>
+        </div>
+
+        {loading && (
+          <div className="text-center space-y-4 py-10">
+            <div className="flex justify-center gap-1">
+              <div className="w-1 h-1 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+              <div className="w-1 h-1 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-1 h-1 bg-gold rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+            </div>
+            <p className="text-gold uppercase tracking-[0.6em] text-[9px] font-bold">Connecting to Celestial Nodes...</p>
+          </div>
+        )}
+
+        {chartData && (
+          <div className="animate-fade-in space-y-12">
+            <div className="bg-white/5 p-8 md:p-16 rounded-[3rem] border border-white/10 shadow-2xl backdrop-blur-md">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 border-b border-white/5 pb-8">
+                <h3 className="text-3xl md:text-4xl font-serif text-white">The {selectedSystem} <span className="text-gold italic">Engine</span></h3>
+                <div className="text-[10px] text-slate-500 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full border border-white/5">Calculated Intelligence</div>
+              </div>
+              
+              <SystemChart data={chartData} />
+              
+              <div className="mt-16 pt-12 border-t border-white/5 space-y-10">
+                <div className="flex items-center gap-4">
+                   <div className="h-px bg-gold/30 flex-grow"></div>
+                   <h4 className="text-xs font-bold text-gold uppercase tracking-[0.4em]">Genuine Structural Infrastructure</h4>
+                   <div className="h-px bg-gold/30 flex-grow"></div>
+                </div>
+                <div className="prose prose-invert max-w-none">
+                  <div className="text-slate-400 font-light leading-loose whitespace-pre-wrap text-base italic text-justify opacity-80">
+                    {chartData.structuralAnalysis}
                   </div>
                 </div>
-              ))}
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-white/10 text-gold/60 p-4 rounded-2xl animate-pulse text-xs uppercase tracking-widest border border-white/5">Consulting planetary alignments...</div>
-                </div>
-              )}
+              </div>
             </div>
+            
+            <button 
+              onClick={handleStartDiscussion}
+              className="w-full py-8 bg-white text-black font-bold uppercase tracking-[0.5em] text-xs rounded-full hover:bg-gold transition-all shadow-2xl active:scale-95"
+            >
+              Discuss Your Profile with AI →
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
-            <form onSubmit={handleChatSend} className="mt-4 flex gap-3">
+  return (
+    <div className="pt-32 pb-6 px-6 max-w-6xl mx-auto h-[90vh] flex flex-col">
+       {error && <div className="mb-4"><ErrorAlert message={error} /></div>}
+       <div className="flex-grow flex flex-col h-full bg-white/5 border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl backdrop-blur-3xl relative">
+          {/* Header */}
+          <div className="p-8 border-b border-white/10 flex justify-between items-center bg-[#05050a]/60 sticky top-0 z-10">
+            <div className="flex items-center gap-4">
+               <span className="text-3xl animate-pulse">{SYSTEM_DATA[selectedSystem!].icon}</span>
+               <div>
+                  <h3 className="text-lg md:text-xl font-serif text-white tracking-widest">{selectedSystem?.toUpperCase()} INTELLIGENCE</h3>
+                  <p className="text-[9px] text-slate-500 tracking-[0.3em] uppercase">Consultant: Star Talks AI • Profiling: {details.name}</p>
+               </div>
+            </div>
+            <button onClick={() => { setStep('results'); setMessages([]); setError(null); }} className="text-slate-500 hover:text-white uppercase tracking-widest text-[9px] font-bold transition-colors">Terminate Session</button>
+          </div>
+
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-grow p-6 md:p-12 overflow-y-auto space-y-10 scrollbar-thin">
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+                <div className={`max-w-[90%] md:max-w-[80%] p-8 rounded-[2.5rem] ${
+                  msg.role === 'user' ? 'bg-gold text-black shadow-2xl rounded-tr-none' : 'bg-white/5 text-slate-200 border border-white/5 rounded-tl-none backdrop-blur-md'
+                }`}>
+                  <div className={`text-[9px] font-bold uppercase tracking-widest mb-4 opacity-50 ${msg.role === 'user' ? 'text-black' : 'text-gold'}`}>
+                    {msg.role === 'user' ? 'The Seeker' : 'The System Architecture'}
+                  </div>
+                  <div className="leading-relaxed whitespace-pre-wrap text-sm md:text-base font-light italic">
+                    {msg.content}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-white/5 text-gold/60 p-6 rounded-[2.5rem] rounded-tl-none text-[10px] uppercase tracking-[0.4em] border border-white/5 italic">
+                  Decoding current transits and elemental flux...
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div className="p-6 md:p-8 bg-[#05050a]/80 border-t border-white/10 backdrop-blur-xl">
+            <form onSubmit={handleChatSend} className="flex flex-col sm:flex-row gap-4 max-w-5xl mx-auto">
               <input 
-                type="text"
-                placeholder="Inquire further about your soul path..."
-                className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-gold/50 outline-none shadow-inner"
+                type="text" 
+                placeholder="Ask about your destiny, current cycles, or specific life questions..." 
+                className="flex-grow bg-white/5 border border-white/10 rounded-full px-8 py-5 text-white focus:outline-none focus:border-gold transition-all placeholder:text-slate-700 text-sm md:text-base"
                 value={input}
                 onChange={e => setInput(e.target.value)}
               />
               <button 
-                type="submit"
-                disabled={loading}
-                className="bg-gold hover:bg-[#b8962e] text-black font-bold px-10 rounded-2xl transition-all disabled:opacity-50 shadow-lg shadow-gold/10"
+                type="submit" 
+                disabled={loading || !input.trim()} 
+                className="px-12 bg-gold text-black font-bold rounded-full hover:bg-white transition-all uppercase tracking-widest text-xs py-5 disabled:opacity-30 shadow-xl shadow-gold/5 active:scale-95"
               >
                 Inquire
               </button>
             </form>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-            <div className="bg-white/5 border border-white/10 p-8 rounded-3xl shadow-xl backdrop-blur-md">
-              <h3 className="text-xl font-serif text-gold mb-8 text-center uppercase tracking-[0.2em]">Celestial Blueprint</h3>
-              <NorthIndianChart data={chartData} />
-            </div>
-
-            <div className="space-y-6">
-              <div className="p-8 bg-white/5 rounded-3xl border border-white/10 shadow-xl h-full flex flex-col justify-center">
-                <h4 className="text-xs font-bold text-gold uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                  <span className="text-xl">🕉️</span> Astrological Synthesis
-                </h4>
-                <p className="text-gray-300 text-lg leading-relaxed italic font-serif">"{chartData.summary}"</p>
-                <div className="mt-8 pt-6 border-t border-white/10 space-y-4">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500 uppercase tracking-widest text-[10px]">Reference Point</span>
-                    <span className="text-white font-medium">{birthDetails.location}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500 uppercase tracking-widest text-[10px]">Time Stream</span>
-                    <span className="text-white font-medium">{birthDetails.date} @ {birthDetails.time}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <button 
-                onClick={() => {setChartData(null); setMessages([]);}}
-                className="w-full py-4 text-xs text-gray-500 uppercase tracking-[0.3em] hover:text-gold transition-all bg-white/5 rounded-2xl border border-white/5 hover:border-gold/20"
-              >
-                Reset Cosmic Path
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+       </div>
     </div>
   );
 };
